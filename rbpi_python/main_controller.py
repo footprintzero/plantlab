@@ -66,6 +66,8 @@ def get_json_messages(refresh):
 	#get the json message
 	if src.success:
 		json_msgs.append(src.jsonObj)
+	else:
+		print('%s failed to fetch json' %dt.datetime.strftime(dt.datetime.now(),TIME_FORMAT))
 
 if __name__ == "__main__":
 	runloop()

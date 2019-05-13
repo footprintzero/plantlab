@@ -54,10 +54,16 @@ def fetch_json_message():
 		foundJson = ((msgStr[0]=='{') & (msgStr[-1]=='}'))
 		if foundJson:
 			#deserialize json string into json obj
-			jsonObj = json.loads(msgStr)
-			success = 1
-			break
+			try:
+				jsonObj = json.loads(msgStr)
+				success = 1
+				break
+			except:
+				print('error parsing json:%s' %msgStr)
+				foundJson=False
+				attemptCount = attemptCount+1
 		else:
 			attemptCount = attemptCount+1
-	time.sleep(wait_time)		
-	
+		time.sleep(wait_time)
+	if attemptCount>=MAX_RETRY:
+		print('max attempts timeout')
