@@ -11,7 +11,9 @@ const long DEFAULT_TIME = 1357041600; // Jan 1 2013 00:00 - in seconds
 String readingStr;
 long int delaySEC = 3;
 long int SEC_MS = 1000;
-long int DHTread_MS = 1000;
+long int Wetread_MS = 2000;
+long int DHTread_MS = 4000;
+long int print_delay = 500;
 long int rb_time;
 
 // INPUT Signal
@@ -51,7 +53,7 @@ int relayValue = HIGH;
 long int dev_pins[3] = {pin_FANL, pin_FANR, pin_PUMP} ;
 long int dev_status[3] = {1,1,1}; // FANL, FANR, PUMP. 0 = OFF, 1 = ON
 long int counter[3][2] = {{0,0},{0,30},{0,0}}; // N x M 2D : N = #devices, M = 2 : ON , OFF
-long int triggers[3][2] = {{2400,240},{2400,240},{12,900}} ;// N x M 2D : N = #devices, M = 2 : ON time (sec), OFF time (sec)
+long int triggers[3][2] = {{2400,240},{30,2400},{12,4800}} ;// N x M 2D : N = #devices, M = 2 : ON time (sec), OFF time (sec)
 
 // long int testtime_FANL = 300;
 // long int testtime_FANR = 300;
@@ -86,6 +88,7 @@ void loop() {
     syncTime(timeserial);
 
     Serial.print("{\"message_type\":\"sensor_reading\",\"readings\":");
+    delay(print_delay);
     reading_allsensors(); 
     Serial.print("}");
     Serial.println();    
@@ -150,7 +153,9 @@ void reading_wetTemps() {
     String sensorid = "CT0";
     sensorid += String(i+1);
     // read the sensor value
-    sensors.requestTemperatures(); // Send the command to get temperature readings     
+    sensors.requestTemperatures(); // Send the command to get temperature readings
+    
+    delay(Wetread_MS);     
     float value = sensors.getTempCByIndex(wire_CTs[i]);
     
     // create the json reading str    
@@ -164,21 +169,22 @@ void reading_wetTemps() {
     }
   }
   Serial.print(readingStr);
+  delay(print_delay);  
 }
 
 void reading_DHTs() {
   int i = 0;
-  String PROGMEM readingStr;
+  String readingStr;
   for (i;i<DHTSensorCount;i++){
     Serial.print(reading_DHT(i,0));
-    delay(DHTread_MS);
+    delay(print_delay);  
     Serial.print(",");
     Serial.print(reading_DHT(i,1));
+    delay(print_delay);  
     
     if (i<(DHTSensorCount-1)) {
       Serial.print(",");
     }
-    delay(DHTread_MS);
   }
 }
 
@@ -202,6 +208,7 @@ String reading_DHT(int sensor_index,int readtype) {
   } else {
     value = DHTs[sensor_index]->readHumidity();
   }
+  delay(DHTread_MS);
 
   //create the json reading string
   readingStr = sensor_reading(sensorid,value);
