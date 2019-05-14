@@ -5,7 +5,7 @@ import time
 
 #constants
 TIME_FORMAT = '%d/%m/%Y %H:%M:%S'
-SAMPLING_SEC = 180
+SAMPLING_SEC = 300
 
 #global variables
 warnings = []
