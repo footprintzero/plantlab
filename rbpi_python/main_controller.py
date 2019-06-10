@@ -13,6 +13,7 @@ json_msgs = []
 timeserial = None
 readings_file = 'sensor_readings.csv'
 readings_data = None
+fields = ['datetime','sensorid','value']
 
 def runloop():
 	global json_msgs, warnings
@@ -49,6 +50,7 @@ def update_databases():
 				update_readings(msg['readings'])
 
 			#read control state ( to be added later..)
+	json_msgs = []
 
 def update_readings(json_readings):
 	global readings_file, readings_data
@@ -59,7 +61,7 @@ def update_readings(json_readings):
 	records['valid'] = records.apply(lambda x:valid_datestring(x.datetime),axis=1)
 	records.drop(records[records.valid==0].index,inplace=True)
 	del records['valid']
-	if len(records)>0:
+	if (len(records)>0) and (set(fields)==set(records.columns)):
 		readings_data = readings_data.append(records,ignore_index=True)
 		#record data into csv file	
 		readings_data.to_csv(readings_file,index=False)
