@@ -24,13 +24,13 @@
 // declare variables and functions
 int Nlights = 2;
 int Npumps = 2;
-int lightPins[] = {12,10}; // {T, L}
+int lightPins[] = {12,13,10}; // {T, M, L}
 int pumpPins[] = {9,8}; // {A, B}
 int lightON = 7; // hr of day
 int lightOFF = 19; // hr of the day
 int sec_counter = 0;
 int pump_STATUS = 0;
-long int pumpON = 30; // seconds
+long int pumpON = 70; // seconds
 long int pumpOFF = 1200; // seconds 20 min
 
 long int MS_SEC = 1000; //milliseconds
@@ -51,7 +51,7 @@ void setup() {
     Serial.begin(9600);
 
   // manually reset the time - later will replce with Serial communication or use a clocking device 
-  setTime(8,35,0,8,5,19); // set time to 16:40:00 Sun 05 May 2019
+  setTime(18,00,0,8,5,19); // 
     
   if (hour()>=lightON && hour()<lightOFF) {
     // turn lights ON
