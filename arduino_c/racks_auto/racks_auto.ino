@@ -30,8 +30,8 @@ int lightON = 7; // hr of day
 int lightOFF = 19; // hr of the day
 int sec_counter = 0;
 int pump_STATUS = 0;
-long int pumpON = 70; // seconds
-long int pumpOFF = 1200; // seconds 20 min
+long int pumpON = 120; // seconds
+long int pumpOFF = 1080; // seconds 18 min
 
 long int MS_SEC = 1000; //milliseconds
 
