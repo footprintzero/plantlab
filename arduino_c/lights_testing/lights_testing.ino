@@ -80,27 +80,38 @@ void geometry_test() {
   digitalWrite(powerPin[tp[0]],LOW);
   // turn on the channel relay
   digitalWrite(relayPin[tp[0]][tp[1]],HIGH);
-  // set the dim level to max
+  // set the dim level
   analogWrite(dimPin[tp[0]][tp[1]],geotest_lvl);  
 
-  delay(1000);
-  analogWrite(dimPin[tp[0]][tp[1]],0);  
-  digitalWrite(relayPin[tp[0]][tp[1]],LOW);
-  digitalWrite(powerPin[tp[0]],HIGH);
-
-  int tz[] = {1,2};
-  int geotest_z = 255;
-  // turn on the chamber
-  digitalWrite(powerPin[tz[0]],LOW);
-  // turn on the channel relay
-  digitalWrite(relayPin[tz[0]][tz[1]],HIGH);
+  // use this code for all 3x simultaneous
+  //digitalWrite(relayPin[tp[0]][1],HIGH);
+  //digitalWrite(relayPin[tp[0]][2],HIGH);
+  
   // set the dim level to max
-  analogWrite(dimPin[tz[0]][tz[1]],geotest_z);  
+  
+  // use this code for all 3x simultaneous
+  //analogWrite(dimPin[tp[0]][tp[1]],geotest_lvl);  
+  //analogWrite(dimPin[tp[0]][1],geotest_lvl);  
+  //analogWrite(dimPin[tp[0]][2],geotest_lvl);  
 
-  delay(1000);
-  analogWrite(dimPin[tz[0]][tz[1]],0);  
-  digitalWrite(relayPin[tz[0]][tz[1]],LOW);
-  digitalWrite(powerPin[tz[0]],HIGH);
+  //delay(1000);
+  //analogWrite(dimPin[tp[0]][tp[1]],0);  
+  //digitalWrite(relayPin[tp[0]][tp[1]],LOW);
+  //digitalWrite(powerPin[tp[0]],HIGH);
+
+  //int tz[] = {1,2};
+  //int geotest_z = 255;
+  // turn on the chamber
+  //digitalWrite(powerPin[tz[0]],LOW);
+  // turn on the channel relay
+  //digitalWrite(relayPin[tz[0]][tz[1]],HIGH);
+  // set the dim level to max
+  //analogWrite(dimPin[tz[0]][tz[1]],geotest_z);  
+
+  //delay(1000);
+  //analogWrite(dimPin[tz[0]][tz[1]],0);  
+  //digitalWrite(relayPin[tz[0]][tz[1]],LOW);
+  //digitalWrite(powerPin[tz[0]],HIGH);
     
 }
 
