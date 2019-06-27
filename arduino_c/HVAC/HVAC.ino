@@ -2,11 +2,11 @@
 #include <ArduinoJson.h>
 #include <OneWire.h> 
 #include <DallasTemperature.h>
-#include <DHT.h>
+#include <dht.h>
 #include <TimeLib.h>
 
 //General
-#define DHTTYPE DHT22   // DHT 22  (AM2302)
+//#define DHTTYPE DHT22   // DHT 22  (AM2302)
 const long DEFAULT_TIME = 1357041600; // Jan 1 2013 00:00 - in seconds
 String readingStr;
 long int delaySEC = 3;
@@ -39,7 +39,8 @@ int DHTpins[DHTSensorCount] = {5,3,2,7};
 
 // Initialize DHT sensor for normal 16mhz Arduino
 //DHT DHT01(5,DHTTYPE);
-DHT* DHTs[DHTSensorCount];
+dht DHT;
+//dht* DHTs[DHTSensorCount];
 
 // OUTPUT Controls
 int pin_FANL = 12;
@@ -103,7 +104,7 @@ void initialize_DHTreaders() {
     // initialize DHT pins?
     pinMode(DHTpins[i], INPUT);
     // instantiate the DHT reader object
-    DHTs[i] = new DHT(DHTpins[i], DHTTYPE);
+    //DHTs[i] = new dht(DHTpins[i], DHTTYPE);
   }
 }
 
@@ -202,11 +203,14 @@ String reading_DHT(int sensor_index,int readtype) {
 
   // read from the sensor
   float value;
-  DHTs[sensor_index]->begin();   
+  int chk = DHT.read22(DHTpins[sensor_index]);
+  //DHTs[sensor_index]->begin();   
   if (readtype==0) {
-    value= DHTs[sensor_index]->readTemperature();
+    value = DHT.temperature;
+    //value= DHTs[sensor_index]->readTemperature();
   } else {
-    value = DHTs[sensor_index]->readHumidity();
+    value = DHT.humidity;
+    //value = DHTs[sensor_index]->readHumidity();
   }
   delay(DHTread_MS);
 
