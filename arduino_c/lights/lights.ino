@@ -19,6 +19,16 @@ int Nchn = 3;
 int powerPin[] = {0,1};
 int relayPin[][3] = {{13,12,8},{7,4,2}};
 int dimPin[][3] = {{11,10,9},{6,5,3}};
+int relayValue =LOW;
+
+int devCount = 1;
+long int dev_ids[6][2] = {{0,0},{0,1},{0,2},{1,0},{1,1},{1,2}};
+long int dev_status[3] = {1,1,1}; // 
+long int counter[3][2] = {{4,0},{4,0},{4,0}}; // N = #devices, M = 2 : ON , OFF
+long int triggers[3][2] = {{12,12},{12,12},{12,12}} ;// N = #devices, M = 2 : ON time (hrs), OFF time (hrs)
+long int dim_lvl[2][3] = {{120,120,120},{120,120,120}} ;// N = #devices, M = 2 : 50 (min) to 255 (max)
+
+long int HR_MS = 3600000;
 int delayMS = 2000; //milliseconds
 int level = 0;
 float dimMin = 0.1;
@@ -40,10 +50,61 @@ void setup() {
           pinMode(dimPin[i][j],OUTPUT);
     }  
   }
+  toggle_lights(dev_ids[0],dev_status[0]);
+  toggle_lights(dev_ids[1],dev_status[0]);
+  toggle_lights(dev_ids[2],dev_status[0]);
   //for (int i = 0; i<Ncmb; i++){
   //  chmbloop(i);
   //}
-  geometry_test();
+  //geometry_test();
+}
+
+void timer_mainloop() {
+  // deviceid is ambiguous, call all devices
+  for (int i = 0; i<devCount;i++) {
+    // call ambiguously for both ON and OFF triggers
+    timer_deviceloop(i);
+  }
+  delay(HR_MS);
+  //delay(SEC_MS);  
+}
+
+void timer_deviceloop(int deviceid) {
+  timercall(deviceid,0); // call for ON trigger
+  timercall(deviceid,1); // call for OFF trigger
+}
+
+void timercall(int deviceid, int ONOFF) {
+  // device is specified, trigger action is specified
+  
+  // check device status
+  int isOFF = dev_status[deviceid];
+  int cnt = counter[deviceid][1-ONOFF];
+  int trigger = triggers[deviceid][1-ONOFF];
+  // check if device is not already in the call state
+  if (isOFF!=ONOFF) {
+    // check if device has reached its trigger point
+    if (cnt>=trigger) {
+      // call the action
+      int callid = LOW;
+      if (ONOFF==0) {
+        callid = 1-relayValue;
+      }else {
+        callid = relayValue;
+      }
+      toggle_lights(dev_ids[deviceid],callid);
+      toggle_lights(dev_ids[deviceid+1],callid);
+      toggle_lights(dev_ids[deviceid+2],callid);
+      //digitalWrite(dev_pins[deviceid], callid);      
+      // change the state
+      dev_status[deviceid] = 1-dev_status[deviceid];
+      // reset the counter
+      counter[deviceid][1-ONOFF] = 0;
+    } else {
+      // advance the counter
+      counter[deviceid][1-ONOFF] = cnt  +1;
+    }
+  }
 }
 
 void loop() {
@@ -51,8 +112,9 @@ void loop() {
   // for (int i = 0; i<Ncmb; i++){
   //  chmbloop(i);
   //}
-  geometry_test();
-  delay(1000);
+  timer_mainloop();
+  //geometry_test();
+  //delay(1000);
 }
 
 void chmbloop(int i) {
@@ -70,6 +132,25 @@ void close_channels(int i) {
   for (int j = 0; j<Nchn; j++){
     digitalWrite(relayPin[i][j],LOW);    
   }  
+}
+void toggle_lights(long int tp[],int callid) {
+  // define the channel
+  //int tp[] = {0,0};
+  int geotest_lvl = dim_lvl[tp[0]][tp[1]];
+  //int geotest_lvl = 255;
+  if (callid==1) {
+    // turn on the chamber
+    digitalWrite(powerPin[tp[0]],LOW);
+    // turn on the channel relay
+    digitalWrite(relayPin[tp[0]][tp[1]],HIGH);
+    // set the dim level
+    analogWrite(dimPin[tp[0]][tp[1]],geotest_lvl);  
+  } else {
+    // turn off the chamber
+    digitalWrite(powerPin[tp[0]],HIGH);
+    // turn off the channel relay
+    digitalWrite(relayPin[tp[0]][tp[1]],LOW);
+  }
 }
 
 void geometry_test() {

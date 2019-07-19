@@ -40,7 +40,7 @@ int DHTpins[DHTSensorCount] = {5,3,2,7};
 // Initialize DHT sensor for normal 16mhz Arduino
 //DHT DHT01(5,DHTTYPE);
 dht DHT;
-//dht* DHTs[DHTSensorCount];
+//dht* DHT[DHTSensorCount];
 
 // OUTPUT Controls
 int pin_FANL = 12;
@@ -52,9 +52,9 @@ int pin_BYPR = 10;  //not used
 int devCount = 3;
 int relayValue = HIGH;
 long int dev_pins[3] = {pin_FANL, pin_FANR, pin_PUMP} ;
-long int dev_status[3] = {1,1,1}; // FANL, FANR, PUMP. 0 = OFF, 1 = ON
-long int counter[3][2] = {{0,0},{0,30},{0,0}}; // N x M 2D : N = #devices, M = 2 : ON , OFF
-long int triggers[3][2] = {{2400,240},{30,2400},{12,4800}} ;// N x M 2D : N = #devices, M = 2 : ON time (sec), OFF time (sec)
+long int dev_status[3] = {1,0,0}; // FANL, FANR, PUMP. 0 = OFF, 1 = ON
+long int counter[3][2] = {{5999,0},{0,30},{0,1200}}; // N x M 2D : N = #devices, M = 2 : ON , OFF
+long int triggers[3][2] = {{6000,0},{0,30},{20,1200}} ;// N x M 2D : N = #devices, M = 2 : ON time (sec), OFF time (sec)
 
 // long int testtime_FANL = 300;
 // long int testtime_FANR = 300;
@@ -102,7 +102,7 @@ void initialize_DHTreaders() {
   int i = 0;
   for (i;i<DHTSensorCount;i++){
     // initialize DHT pins?
-    pinMode(DHTpins[i], INPUT);
+    //pinMode(DHTpins[i], INPUT);
     // instantiate the DHT reader object
     //DHTs[i] = new dht(DHTpins[i], DHTTYPE);
   }
@@ -202,15 +202,20 @@ String reading_DHT(int sensor_index,int readtype) {
   sensorid += DHTlabels[sensor_index];
 
   // read from the sensor
-  float value;
-  int chk = DHT.read22(DHTpins[sensor_index]);
+    float value;
+    int chk = DHT.read22(DHTpins[sensor_index]);
+//  int chk = DHT[sensor_index]->read22(DHTpins[sensor_index]);
   //DHTs[sensor_index]->begin();   
-  if (readtype==0) {
-    value = DHT.temperature;
+  if (chk==0) {
+    if (readtype==0) {
+      value = DHT.temperature;
     //value= DHTs[sensor_index]->readTemperature();
-  } else {
-    value = DHT.humidity;
+    } else {
+      value = DHT.humidity;
     //value = DHTs[sensor_index]->readHumidity();
+    }
+  } else {
+    value = -1;
   }
   delay(DHTread_MS);
 
@@ -254,8 +259,8 @@ void timercall(int deviceid, int ONOFF) {
   
   // check device status
   int isOFF = dev_status[deviceid];
-  int cnt = counter[deviceid][1-ONOFF];
-  int trigger = triggers[deviceid][1-ONOFF];
+  long int cnt = counter[deviceid][1-ONOFF];
+  long int trigger = triggers[deviceid][1-ONOFF];
   // check if device is not already in the call state
   if (isOFF!=ONOFF) {
     // check if device has reached its trigger point
