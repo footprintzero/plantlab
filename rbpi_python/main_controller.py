@@ -1,11 +1,16 @@
-import serialcom as src
+from rbpi_python import serialcom as src
 import pandas as pd
 import datetime as dt
 import time
+import RPi.GPIO as GPIO
 
 #constants
 TIME_FORMAT = '%d/%m/%Y %H:%M:%S'
 SAMPLING_SEC = 600
+RESET_TIMER_MIN = 240
+RESET_DELAY_SEC = 30
+RELAY_PIN = 17
+PIN_ON = 0
 
 #global variables
 warnings = []
@@ -14,24 +19,44 @@ timeserial = None
 readings_file = 'sensor_readings.csv'
 readings_data = None
 fields = ['datetime','sensorid','value']
+N_loops = int((RESET_TIMER_MIN*60-2*RESET_DELAY_SEC)/SAMPLING_SEC)
 
 def runloop():
 	global json_msgs, warnings
 	refresh = True
 	json_msgs = []
-	#loop through each subsystem
-	while (len(warnings)==0):
-		get_json_messages(refresh)
-		#	syncronize the time
-		#	broadcast setpoint instructions
-		# 	read warnings and messages	
+	setup_relay()
+	while 1:
+		n = 0
+		#loop through each subsystem and get sensor readings
+		while (len(warnings)==0 and n<=N_loops):
+			get_json_messages(refresh)
+			#	syncronize the time
+			#	broadcast setpoint instructions
+			# 	read warnings and messages
 
-		update_databases()
-		# 	read sensor data, read control states
-		# 	record data into csv file
+			update_databases()
+			# 	read sensor data, read control states
+			# 	record data into csv file
 
-		refresh = False
-		time.sleep(SAMPLING_SEC)
+			refresh = False
+			time.sleep(SAMPLING_SEC)
+		#reset sensors relay
+		reset_relay()
+
+
+def setup_relay():
+	GPIO.setmode(GPIO.BCM)
+	GPIO.setup(RELAY_PIN,GPIO.OUT)
+	GPIO.output(RELAY_PIN,PIN_ON)
+
+
+def reset_relay():
+	GPIO.output(RELAY_PIN,1-PIN_ON)
+	time.sleep(RESET_DELAY_SEC)
+	GPIO.output(RELAY_PIN,PIN_ON)
+	time.sleep(RESET_DELAY_SEC)
+
 
 def valid_datestring(dateStr):
 	success = 1
