@@ -1,55 +1,37 @@
-int fan_rc_rw = 3;
-int fan_rc_bw = 2;
-int fan_lc_lw = 1;
-int fan_lc_bw = 0;
-int mf_rc = 7;
-int mf_lc = 8;
-
+long int fan_pins[2][2] = {{3,2},{13,12}}; // chamber x wall 2D : {right chmb {right,back},left chmb {left,back}}}
+long int man_pins[2] = {7,8}; // right, left chamber
 
 void setup() {
-  
-  pinMode(fan_rc_rw, OUTPUT);
-  digitalWrite(fan_rc_rw, HIGH);
-  
-  pinMode(fan_rc_bw, OUTPUT);
-  digitalWrite(fan_rc_bw, HIGH);
-  
-  pinMode(fan_lc_lw, OUTPUT);
-  digitalWrite(fan_lc_lw, LOW);
-  
-  pinMode(fan_lc_bw, OUTPUT);
-  digitalWrite(fan_lc_bw, LOW);
-
-  pinMode(mf_rc, OUTPUT);
-  digitalWrite(mf_rc, HIGH);
-
-  pinMode(mf_lc, OUTPUT);
-  digitalWrite(mf_lc, HIGH);
+  set_fans();
+  //set_manifold();
 }
 
 
-//void loop() {
-  //digitalWrite(fan_rc_rw, HIGH); //righ chamber_right wall relay 5
-  //delay(1000);
-  //digitalWrite(fan_rc_rw, LOW);
-  //delay(1000);
+void loop() { 
 
-  //digitalWrite(fan_rc_bw, HIGH); //righ chamber_back wall relay 6
-  //delay(1000);
-  //digitalWrite(fan_rc_bw, LOW);
-  //delay(1000);
+}
 
-  //digitalWrite(fan_lc_lw, HIGH); //left chamber_left wall relay 7
-  //delay(1000);
-  //digitalWrite(fan_lc_lw, LOW);
-  //delay(1000);
+void set_fans() {
+  setup_fan(0,0,HIGH);  
+  setup_fan(0,1,HIGH); 
 
-  //digitalWrite(fan_lc_bw, HIGH); //left chamber_left wall relay 8
-  //delay(1000);
-  //digitalWrite(fan_lc_bw, LOW);
-  //delay(1000);
-//}
+  setup_fan(1,0,LOW);  
+  setup_fan(1,1,LOW);  
+}
 
-void loop() {
- 
+void set_manifold() {
+  setup_manifold(0,HIGH);
+  setup_manifold(1,HIGH);
+}
+
+void setup_fan(long int chbid,long int wallid,int ONOFF) {
+  long int pinid = fan_pins[chbid][wallid];
+  pinMode(pinid, OUTPUT);
+  digitalWrite(pinid,ONOFF);  
+}
+
+void setup_manifold(long int mfid,int ONOFF) {
+  long int pinid = man_pins[mfid];
+  pinMode(pinid, OUTPUT);
+  digitalWrite(pinid,ONOFF);  
 }
