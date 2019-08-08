@@ -7,10 +7,10 @@ import RPi.GPIO as GPIO
 #constants
 TIME_FORMAT = '%d/%m/%Y %H:%M:%S'
 SAMPLING_SEC = 600
-RESET_TIMER_MIN = 240
+RESET_TIMER_MIN = 60
 RESET_DELAY_SEC = 30
 RELAY_PIN = 17
-PIN_ON = 0
+PIN_ON = 1
 
 #global variables
 warnings = []
@@ -41,6 +41,7 @@ def runloop():
 
 			refresh = False
 			time.sleep(SAMPLING_SEC)
+			n = n + 1
 		#reset sensors relay
 		reset_relay()
 
