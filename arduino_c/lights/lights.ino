@@ -24,11 +24,13 @@ int relayValue =LOW;
 int devCount = 1;
 long int dev_ids[6][2] = {{0,0},{0,1},{0,2},{1,0},{1,1},{1,2}};
 long int dev_status[3] = {1,1,1}; // 
-long int counter[3][2] = {{4,0},{4,0},{4,0}}; // N = #devices, M = 2 : ON , OFF
-long int triggers[3][2] = {{12,12},{12,12},{12,12}} ;// N = #devices, M = 2 : ON time (hrs), OFF time (hrs)
-long int dim_lvl[2][3] = {{120,120,120},{120,120,120}} ;// N = #devices, M = 2 : 50 (min) to 255 (max)
+long int stg_status[2] = {1,1}; //
+long int counter[2][4] = {{0,4,0,0},{0,4,0,0}}; // N = chamber, M = (night, morn, afternoon, evening)
+long int triggers[2][4] = {{12,6,4,2},{12,6,4,2}} ;// N = chamber,  M = (night, morn, afternoon, evening)
+long int dim_lvl[3][4] = {{0,120,180,0},{0,120,180,0},{0,120,180,120}} ;// N = #devices, M = 4 : 50 (min) to 255 (max)
 
 long int HR_MS = 3600000;
+long int MIN_MS = 5000;
 int delayMS = 2000; //milliseconds
 int level = 0;
 float dimMin = 0.1;
@@ -38,25 +40,90 @@ int maxPWM = 255;
 void chmbloop(int i, int j);
 
 void setup() {
+  //Serial.begin(9600);
   for (int i = 0; i<Ncmb; i++){
     //setup power pins and set to initial values
     pinMode(powerPin[i],OUTPUT);
-    digitalWrite(powerPin[i],HIGH);
+    digitalWrite(powerPin[i],HIGH); // something wrong in wiring -- this code doesn't work
     for (int j =0; j<Nchn;j++){
           //setup channel relay pins set to initial values
           pinMode(relayPin[i][j],OUTPUT);
           digitalWrite(relayPin[i][j],LOW);
           //setup dimming pins
           pinMode(dimPin[i][j],OUTPUT);
-    }  
+    }
   }
-  toggle_lights(dev_ids[0],dev_status[0]);
-  toggle_lights(dev_ids[1],dev_status[0]);
-  toggle_lights(dev_ids[2],dev_status[0]);
-  //for (int i = 0; i<Ncmb; i++){
-  //  chmbloop(i);
-  //}
-  //geometry_test();
+}
+
+void loop() {
+  // main loop
+  dimmer_loop();
+}
+
+
+void dimmer_loop() {
+  refresh_stage_status(0);
+  //refresh_stage_status(1);
+  delay(HR_MS);
+}
+
+
+void refresh_stage_status(int cmbid) {
+  int cur_stg = stg_status[cmbid];
+  int action = triggers[cmbid][cur_stg];
+  int elapsed = counter[cmbid][cur_stg];
+  int remain = action-elapsed;
+  if (remain<=0) {
+    move_next_stage(cmbid);
+    counter[cmbid][cur_stg] = 0;
+  }else {
+    counter[cmbid][cur_stg] = counter[cmbid][cur_stg] + 1;
+  }
+  //Serial.print("cmb:");
+  //Serial.print(cmbid);
+  //Serial.print(" stg: ");
+  //Serial.println(cur_stg);
+}
+
+void move_next_stage(int cmbid){
+  int cur_stg = stg_status[cmbid];
+  int stgid = cur_stg;
+  if (cur_stg<3) {
+    stgid = cur_stg + 1;
+    set_cmb_status(cmbid,1);
+  } else {
+    stgid = 0;
+    set_cmb_status(cmbid,0);
+  }
+  for (int i = 0; i<Nchn;i++) {
+    set_dim_lvl(cmbid,i,dim_lvl[i][stgid]);
+  }
+  stg_status[cmbid] = stgid;
+}
+
+void set_dim_lvl(int cmbid, int chn, int lvl) {
+    // determine if ON/OFF
+    if (lvl==0) {
+      set_chn_status(cmbid,chn,0);
+    } else {
+      set_chn_status(cmbid,chn,1);
+      set_chn_lvl(cmbid,chn,lvl);
+    }
+}
+
+void set_cmb_status(int cmbid, int on_status) {
+    // turn on the chamber
+    digitalWrite(powerPin[cmbid],1-on_status);
+}
+
+void set_chn_status(int cmbid, int chn, int on_status) {
+    // turn on the channel relay
+    digitalWrite(relayPin[cmbid][chn],on_status);
+}
+
+void set_chn_lvl(int cmbid, int chn, int lvl) {
+    // set the dim level
+    analogWrite(dimPin[cmbid][chn],lvl);
 }
 
 void timer_mainloop() {
@@ -66,8 +133,9 @@ void timer_mainloop() {
     timer_deviceloop(i);
   }
   delay(HR_MS);
-  //delay(SEC_MS);  
+  //delay(SEC_MS);
 }
+
 
 void timer_deviceloop(int deviceid) {
   timercall(deviceid,0); // call for ON trigger
@@ -76,7 +144,7 @@ void timer_deviceloop(int deviceid) {
 
 void timercall(int deviceid, int ONOFF) {
   // device is specified, trigger action is specified
-  
+
   // check device status
   int isOFF = dev_status[deviceid];
   int cnt = counter[deviceid][1-ONOFF];
@@ -95,7 +163,6 @@ void timercall(int deviceid, int ONOFF) {
       toggle_lights(dev_ids[deviceid],callid);
       toggle_lights(dev_ids[deviceid+1],callid);
       toggle_lights(dev_ids[deviceid+2],callid);
-      //digitalWrite(dev_pins[deviceid], callid);      
       // change the state
       dev_status[deviceid] = 1-dev_status[deviceid];
       // reset the counter
@@ -107,32 +174,23 @@ void timercall(int deviceid, int ONOFF) {
   }
 }
 
-void loop() {
-  // main loop
-  // for (int i = 0; i<Ncmb; i++){
-  //  chmbloop(i);
-  //}
-  timer_mainloop();
-  //geometry_test();
-  //delay(1000);
-}
-
 void chmbloop(int i) {
   //1) first power-on the chamber
-  digitalWrite(powerPin[i],LOW);    
-  //2) close all relays to turn off the channels 
+  digitalWrite(powerPin[i],LOW);
+  //2) close all relays to turn off the channels
   close_channels(i);
   //3) dimming loop : for each channel i,j
   //dim_test(i);
   //4) power-OFF the chamber
-  // digitalWrite(powerPin[i],HIGH);    
+  // digitalWrite(powerPin[i],HIGH);
 }
 
 void close_channels(int i) {
   for (int j = 0; j<Nchn; j++){
-    digitalWrite(relayPin[i][j],LOW);    
-  }  
+    digitalWrite(relayPin[i][j],LOW);
+  }
 }
+
 void toggle_lights(long int tp[],int callid) {
   // define the channel
   //int tp[] = {0,0};
@@ -144,71 +202,11 @@ void toggle_lights(long int tp[],int callid) {
     // turn on the channel relay
     digitalWrite(relayPin[tp[0]][tp[1]],HIGH);
     // set the dim level
-    analogWrite(dimPin[tp[0]][tp[1]],geotest_lvl);  
+    analogWrite(dimPin[tp[0]][tp[1]],geotest_lvl);
   } else {
     // turn off the chamber
     digitalWrite(powerPin[tp[0]],HIGH);
     // turn off the channel relay
     digitalWrite(relayPin[tp[0]][tp[1]],LOW);
-  }
-}
-
-void geometry_test() {
-  // define the channel
-  int tp[] = {0,0};
-  int geotest_lvl = 255;
-  // turn on the chamber
-  digitalWrite(powerPin[tp[0]],LOW);
-  // turn on the channel relay
-  digitalWrite(relayPin[tp[0]][tp[1]],HIGH);
-  // set the dim level
-  analogWrite(dimPin[tp[0]][tp[1]],geotest_lvl);  
-
-  // use this code for all 3x simultaneous
-  //digitalWrite(relayPin[tp[0]][1],HIGH);
-  //digitalWrite(relayPin[tp[0]][2],HIGH);
-  
-  // set the dim level to max
-  
-  // use this code for all 3x simultaneous
-  //analogWrite(dimPin[tp[0]][tp[1]],geotest_lvl);  
-  //analogWrite(dimPin[tp[0]][1],geotest_lvl);  
-  //analogWrite(dimPin[tp[0]][2],geotest_lvl);  
-
-  //delay(1000);
-  //analogWrite(dimPin[tp[0]][tp[1]],0);  
-  //digitalWrite(relayPin[tp[0]][tp[1]],LOW);
-  //digitalWrite(powerPin[tp[0]],HIGH);
-
-  //int tz[] = {1,2};
-  //int geotest_z = 255;
-  // turn on the chamber
-  //digitalWrite(powerPin[tz[0]],LOW);
-  // turn on the channel relay
-  //digitalWrite(relayPin[tz[0]][tz[1]],HIGH);
-  // set the dim level to max
-  //analogWrite(dimPin[tz[0]][tz[1]],geotest_z);  
-
-  //delay(1000);
-  //analogWrite(dimPin[tz[0]][tz[1]],0);  
-  //digitalWrite(relayPin[tz[0]][tz[1]],LOW);
-  //digitalWrite(powerPin[tz[0]],HIGH);
-    
-}
-
-
-void dim_test(int i) {
-  // turn on the relay
-  for (int j = 0; j<Nchn; j++){
-    digitalWrite(relayPin[i][j],HIGH);
-    // then dim from min to max range
-    for (float dimValue = dimMin ; dimValue < dimMax; dimValue+=0.1) {
-        level = dimValue*maxPWM;
-        analogWrite(dimPin[i][j],level);
-        // add a delay
-        delay(delayMS);
-    }
-  // then turn off the channel relay
-    digitalWrite(relayPin[i][j],LOW);    
   }
 }
