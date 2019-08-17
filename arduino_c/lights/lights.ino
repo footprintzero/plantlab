@@ -13,202 +13,223 @@
   first turning ON the channel, then dimming, and then turning OFF the channel.
 */
 
+#include <string.h>
+#include <ArduinoJson.h>
+#include <SoftwareSerial.h>
+#include <TimeLib.h>
+
 // declare variables and functions
 int Ncmb = 2;
 int Nchn = 3;
-int powerPin[] = {0,1};
+int powerPin[] = {6,5};
 int relayPin[][3] = {{13,12,8},{7,4,2}};
-int dimPin[][3] = {{11,10,9},{6,5,3}};
+int dimPin[][3] = {{11,10,9},{14,15,16}};
 int relayValue =LOW;
 
 int devCount = 1;
 long int dev_ids[6][2] = {{0,0},{0,1},{0,2},{1,0},{1,1},{1,2}};
-long int dev_status[3] = {1,1,1}; // 
-long int counter[3][2] = {{4,0},{4,0},{4,0}}; // N = #devices, M = 2 : ON , OFF
-long int triggers[3][2] = {{12,12},{12,12},{12,12}} ;// N = #devices, M = 2 : ON time (hrs), OFF time (hrs)
-long int dim_lvl[2][3] = {{120,120,120},{120,120,120}} ;// N = #devices, M = 2 : 50 (min) to 255 (max)
+long int dev_status[3] = {1,1,1}; //
+long int stg_status[2] = {1,0}; //
+int SEC_COUNTER = 0;
+long int counter[2][4] = {{0,4,0,0},{0,4,0,0}}; // N = chamber, M = (night, morn, afternoon, evening)
+long int triggers[2][4] = {{12,6,4,2},{12,6,4,2}} ;// N = chamber,  M = (night, morn, afternoon, evening)
+long int dim_lvl[3][4] = {{0,120,180,0},{0,120,180,0},{0,120,180,120}} ;// N = #devices, M = 4 : 50 (min) to 255 (max)
 
-long int HR_MS = 3600000;
+const long DEFAULT_TIME = 1357041600; // Jan 1 2013 00:00 - in seconds
+int HR_SEC = 3600;
+long int SEC_MS = 1000;
+long int MIN_MS = 5000;
 int delayMS = 2000; //milliseconds
+long int print_delay = 200;
 int level = 0;
 float dimMin = 0.1;
 float dimMax = 0.8;
-int maxPWM = 255;
+float maxPWM = 255;
 
 void chmbloop(int i, int j);
 
 void setup() {
+  Serial.begin(9600);
   for (int i = 0; i<Ncmb; i++){
     //setup power pins and set to initial values
     pinMode(powerPin[i],OUTPUT);
-    digitalWrite(powerPin[i],HIGH);
+    digitalWrite(powerPin[i],HIGH); // some hardware problem, doesn't produce expected response
     for (int j =0; j<Nchn;j++){
           //setup channel relay pins set to initial values
           pinMode(relayPin[i][j],OUTPUT);
           digitalWrite(relayPin[i][j],LOW);
           //setup dimming pins
           pinMode(dimPin[i][j],OUTPUT);
-    }  
-  }
-  toggle_lights(dev_ids[0],dev_status[0]);
-  toggle_lights(dev_ids[1],dev_status[0]);
-  toggle_lights(dev_ids[2],dev_status[0]);
-  //for (int i = 0; i<Ncmb; i++){
-  //  chmbloop(i);
-  //}
-  //geometry_test();
-}
-
-void timer_mainloop() {
-  // deviceid is ambiguous, call all devices
-  for (int i = 0; i<devCount;i++) {
-    // call ambiguously for both ON and OFF triggers
-    timer_deviceloop(i);
-  }
-  delay(HR_MS);
-  //delay(SEC_MS);  
-}
-
-void timer_deviceloop(int deviceid) {
-  timercall(deviceid,0); // call for ON trigger
-  timercall(deviceid,1); // call for OFF trigger
-}
-
-void timercall(int deviceid, int ONOFF) {
-  // device is specified, trigger action is specified
-  
-  // check device status
-  int isOFF = dev_status[deviceid];
-  int cnt = counter[deviceid][1-ONOFF];
-  int trigger = triggers[deviceid][1-ONOFF];
-  // check if device is not already in the call state
-  if (isOFF!=ONOFF) {
-    // check if device has reached its trigger point
-    if (cnt>=trigger) {
-      // call the action
-      int callid = LOW;
-      if (ONOFF==0) {
-        callid = 1-relayValue;
-      }else {
-        callid = relayValue;
-      }
-      toggle_lights(dev_ids[deviceid],callid);
-      toggle_lights(dev_ids[deviceid+1],callid);
-      toggle_lights(dev_ids[deviceid+2],callid);
-      //digitalWrite(dev_pins[deviceid], callid);      
-      // change the state
-      dev_status[deviceid] = 1-dev_status[deviceid];
-      // reset the counter
-      counter[deviceid][1-ONOFF] = 0;
-    } else {
-      // advance the counter
-      counter[deviceid][1-ONOFF] = cnt  +1;
     }
+    set_current_stage(0);
+    //set_current_stage(1);
   }
 }
 
 void loop() {
   // main loop
-  // for (int i = 0; i<Ncmb; i++){
-  //  chmbloop(i);
-  //}
-  timer_mainloop();
-  //geometry_test();
-  //delay(1000);
+  sensor_reading();
 }
 
-void chmbloop(int i) {
-  //1) first power-on the chamber
-  digitalWrite(powerPin[i],LOW);    
-  //2) close all relays to turn off the channels 
-  close_channels(i);
-  //3) dimming loop : for each channel i,j
-  //dim_test(i);
-  //4) power-OFF the chamber
-  // digitalWrite(powerPin[i],HIGH);    
+void sensor_reading() {
+  if (Serial.available()) {
+    String rbpiStr = Serial.readString();
+    rbpiStr.replace("\n","");
+    DynamicJsonDocument rbpiJson(300);
+    deserializeJson(rbpiJson,rbpiStr);
+
+    long int timeserial = rbpiJson["timeserial"];
+    syncTime(timeserial);
+
+    Serial.print("{\"message_type\":\"sensor_reading\",\"jbid\":\"lights\",\"readings\":");
+    delay(print_delay);
+    reading_allsensors();
+    Serial.print("}");
+    Serial.println();
+    Serial.flush();
+  }
+  dimmer_loop();
 }
 
-void close_channels(int i) {
-  for (int j = 0; j<Nchn; j++){
-    digitalWrite(relayPin[i][j],LOW);    
-  }  
+void dimmer_loop() {
+  refresh_stage_status(0);
+  //refresh_stage_status(1);
 }
-void toggle_lights(long int tp[],int callid) {
-  // define the channel
-  //int tp[] = {0,0};
-  int geotest_lvl = dim_lvl[tp[0]][tp[1]];
-  //int geotest_lvl = 255;
-  if (callid==1) {
-    // turn on the chamber
-    digitalWrite(powerPin[tp[0]],LOW);
-    // turn on the channel relay
-    digitalWrite(relayPin[tp[0]][tp[1]],HIGH);
-    // set the dim level
-    analogWrite(dimPin[tp[0]][tp[1]],geotest_lvl);  
-  } else {
-    // turn off the chamber
-    digitalWrite(powerPin[tp[0]],HIGH);
-    // turn off the channel relay
-    digitalWrite(relayPin[tp[0]][tp[1]],LOW);
+
+void syncTime(long int timeserial) {
+  if (timeserial>0) {
+    setTime(timeserial);
+  }else {
+    setTime(DEFAULT_TIME);
+    // setTime(7,0,0,5,1,19); // another way to manually set time 07:00 Jan 05 2019
   }
 }
 
-void geometry_test() {
-  // define the channel
-  int tp[] = {0,0};
-  int geotest_lvl = 255;
-  // turn on the chamber
-  digitalWrite(powerPin[tp[0]],LOW);
-  // turn on the channel relay
-  digitalWrite(relayPin[tp[0]][tp[1]],HIGH);
-  // set the dim level
-  analogWrite(dimPin[tp[0]][tp[1]],geotest_lvl);  
-
-  // use this code for all 3x simultaneous
-  //digitalWrite(relayPin[tp[0]][1],HIGH);
-  //digitalWrite(relayPin[tp[0]][2],HIGH);
-  
-  // set the dim level to max
-  
-  // use this code for all 3x simultaneous
-  //analogWrite(dimPin[tp[0]][tp[1]],geotest_lvl);  
-  //analogWrite(dimPin[tp[0]][1],geotest_lvl);  
-  //analogWrite(dimPin[tp[0]][2],geotest_lvl);  
-
-  //delay(1000);
-  //analogWrite(dimPin[tp[0]][tp[1]],0);  
-  //digitalWrite(relayPin[tp[0]][tp[1]],LOW);
-  //digitalWrite(powerPin[tp[0]],HIGH);
-
-  //int tz[] = {1,2};
-  //int geotest_z = 255;
-  // turn on the chamber
-  //digitalWrite(powerPin[tz[0]],LOW);
-  // turn on the channel relay
-  //digitalWrite(relayPin[tz[0]][tz[1]],HIGH);
-  // set the dim level to max
-  //analogWrite(dimPin[tz[0]][tz[1]],geotest_z);  
-
-  //delay(1000);
-  //analogWrite(dimPin[tz[0]][tz[1]],0);  
-  //digitalWrite(relayPin[tz[0]][tz[1]],LOW);
-  //digitalWrite(powerPin[tz[0]],HIGH);
-    
+char* currentTime() {
+  static char timechar[50];
+  sprintf(timechar,"%02d/%02d/%04d %02d:%02d:%02d",day(),month(),year(),hour(),minute(),second());
+  // String timeStr = String(timechar);
+  return timechar;
 }
 
+void reading_allsensors() {
+  Serial.print("[");
+  // load the readings in here :
 
-void dim_test(int i) {
-  // turn on the relay
-  for (int j = 0; j<Nchn; j++){
-    digitalWrite(relayPin[i][j],HIGH);
-    // then dim from min to max range
-    for (float dimValue = dimMin ; dimValue < dimMax; dimValue+=0.1) {
-        level = dimValue*maxPWM;
-        analogWrite(dimPin[i][j],level);
-        // add a delay
-        delay(delayMS);
+  reading_light_status(0);  // read light status cmbid = 0 Left
+  // Serial.print(",");
+  // read something else
+  Serial.print("]"); // cap it off
+
+}
+
+String sensor_reading(String sensorid, float value) {
+  String jsonStr;
+  char* timechar = currentTime();
+  StaticJsonDocument<300> doc;
+  doc["sensorid"] = sensorid;
+  doc["datetime"] = timechar;
+  doc["value"] = value;
+  serializeJson(doc,jsonStr);
+  return jsonStr;
+}
+
+float get_chn_value(int cmbid, int chn) {
+  int stg_id = stg_status[cmbid];
+  float chn_digital = dim_lvl[chn][stg_id];
+  float chn_value = chn_digital/maxPWM;
+  return chn_value;
+}
+
+void reading_light_status(int cmbid) {
+  int j = 0;
+  String readingStr;
+  for (j;j<Nchn;j++){
+    // set the sensor id
+    String sensorid = "LED";
+    sensorid += String(cmbid);
+    sensorid += String(j+1);
+    // read the sensor value
+    float value = get_chn_value(cmbid,j);
+
+    // create the json reading str
+    if (j==0) {
+      readingStr = sensor_reading(sensorid,value);
+    } else {
+      readingStr += sensor_reading(sensorid,value);
     }
-  // then turn off the channel relay
-    digitalWrite(relayPin[i][j],LOW);    
+    if (j<(Nchn-1)) {
+      readingStr += ",";
+    }
   }
+  Serial.print(readingStr);
+  delay(print_delay);
+}
+
+void refresh_stage_status(int cmbid) {
+  int cur_stg = stg_status[cmbid];
+  int action = triggers[cmbid][cur_stg];
+  int elapsed = counter[cmbid][cur_stg];
+  int remain = action-elapsed;
+  if (remain<=0) {
+    move_next_stage(cmbid);
+    counter[cmbid][cur_stg] = 0;
+    SEC_COUNTER = 0;
+  }else {
+    if (SEC_COUNTER==HR_SEC) {
+      counter[cmbid][cur_stg] = counter[cmbid][cur_stg] + 1;
+      SEC_COUNTER = 0;
+    } else {
+      SEC_COUNTER = SEC_COUNTER + 1;
+    }
+  }
+  delay(SEC_MS);
+}
+
+void set_current_stage(int cmbid){
+  int cur_stg = stg_status[cmbid];
+  for (int i = 0; i<Nchn;i++) {
+    set_dim_lvl(cmbid,i,dim_lvl[i][cur_stg]);
+  }
+}
+
+void move_next_stage(int cmbid){
+  int cur_stg = stg_status[cmbid];
+  int stgid = cur_stg;
+  if (cur_stg<3) {
+    stgid = cur_stg + 1;
+    set_cmb_status(cmbid,1);
+  } else {
+    stgid = 0;
+    set_cmb_status(cmbid,0);
+  }
+  for (int i = 0; i<Nchn;i++) {
+    set_dim_lvl(cmbid,i,dim_lvl[i][stgid]);
+  }
+  stg_status[cmbid] = stgid;
+}
+
+void set_dim_lvl(int cmbid, int chn, int lvl) {
+    // determine if ON/OFF
+    if (lvl==0) {
+      set_chn_status(cmbid,chn,0);
+    } else {
+      set_chn_status(cmbid,chn,1);
+      set_chn_lvl(cmbid,chn,lvl);
+    }
+}
+
+void set_cmb_status(int cmbid, int on_status) {
+    // turn on the chamber
+    digitalWrite(powerPin[cmbid],1-on_status);
+}
+
+void set_chn_status(int cmbid, int chn, int on_status) {
+    // turn on the channel relay
+    digitalWrite(relayPin[cmbid][chn],on_status);
+}
+
+void set_chn_lvl(int cmbid, int chn, int lvl) {
+    // set the dim level
+    analogWrite(dimPin[cmbid][chn],lvl);
 }

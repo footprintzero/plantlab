@@ -1,4 +1,4 @@
-from rbpi_python import serialcom as src
+import serialcom as src
 import pandas as pd
 import datetime as dt
 import time
@@ -105,7 +105,8 @@ def get_json_messages(refresh):
 
 	#get the json message
 	if src.success:
-		json_msgs.append(src.jsonObj)
+		for jsonObj in src.jsons:
+			json_msgs.append(jsonObj)
 	else:
 		print('%s failed to fetch json' %dt.datetime.strftime(dt.datetime.now(),TIME_FORMAT))
 
