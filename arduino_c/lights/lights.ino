@@ -36,7 +36,7 @@ long int triggers[2][4] = {{12,6,4,2},{12,6,4,2}} ;// N = chamber,  M = (night, 
 long int dim_lvl[3][4] = {{0,120,180,0},{0,120,180,0},{0,120,180,120}} ;// N = #devices, M = 4 : 50 (min) to 255 (max)
 
 const long DEFAULT_TIME = 1357041600; // Jan 1 2013 00:00 - in seconds
-int HR_SEC = 3600;
+long int HR_SEC = 3600;
 long int SEC_MS = 1000;
 long int MIN_MS = 5000;
 int delayMS = 2000; //milliseconds
@@ -212,8 +212,10 @@ void move_next_stage(int cmbid){
 void set_dim_lvl(int cmbid, int chn, int lvl) {
     // determine if ON/OFF
     if (lvl==0) {
+      set_cmb_status(cmbid,0);
       set_chn_status(cmbid,chn,0);
     } else {
+      set_cmb_status(cmbid,1);
       set_chn_status(cmbid,chn,1);
       set_chn_lvl(cmbid,chn,lvl);
     }
@@ -221,7 +223,7 @@ void set_dim_lvl(int cmbid, int chn, int lvl) {
 
 void set_cmb_status(int cmbid, int on_status) {
     // turn on the chamber
-    digitalWrite(powerPin[cmbid],1-on_status);
+    digitalWrite(powerPin[cmbid],on_status);
 }
 
 void set_chn_status(int cmbid, int chn, int on_status) {
